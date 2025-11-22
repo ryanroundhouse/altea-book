@@ -44,13 +44,13 @@ def main():
             print(f"   URL: {cls.get('url', 'N/A')}")
             print(f"   Spots: {cls.get('spots_left', 'N/A')} | Full: {cls.get('is_full', False)}")
         
-        # Step 3: Find the specific class: LF3 Strong at 8:30 AM
+        # Step 3: Find the specific class: LF3 Strong at 12:30 PM
         print(f"\n{'='*70}")
-        print("SEARCHING FOR: LF3 Strong at 8:30 AM")
+        print("SEARCHING FOR: LF3 Strong at 12:30 PM")
         print(f"{'='*70}")
         
-        matches = client.find_class(schedule, "LF3 Strong", "8:30 AM")
-        
+        matches = client.find_class(schedule, "LF3 Strong", "12:30 PM")
+
         if matches:
             print(f"\n✓ Found {len(matches)} matching class(es):")
             for match in matches:
@@ -60,18 +60,22 @@ def main():
                 print(f"  Can Book: {match.get('can_book', False)}")
                 print(f"  URL: {match.get('url', 'N/A')}")
                 
-                # Navigate to the class page
-                print(f"\n  Navigating to class page...")
-                class_url = "https://myaltea.app" + match['url']
-                client.page.goto(class_url)
-                client.page.wait_for_load_state("networkidle")
-                print(f"  ✓ Navigated to: {client.page.url}")
-                
-                # Take a screenshot
-                client.page.screenshot(path="debug_class_page.png")
-                print(f"  Saved screenshot: debug_class_page.png")
+                # Book the class
+                if match.get('can_book', False):
+                    success = client.book_class(match['url'])
+                    if success:
+                        print("\n✓ Successfully initiated booking!")
+                    else:
+                        print("\n✗ Failed to book class")
+                else:
+                    print("\n⚠ Class is full or not bookable")
+                    # Still navigate to see the page
+                    client.page.goto("https://myaltea.app" + match['url'])
+                    client.page.wait_for_load_state("networkidle")
+                    client.page.screenshot(path="debug_class_page.png")
+                    print("  Saved screenshot: debug_class_page.png")
         else:
-            print(f"\n✗ No classes found matching 'LF3 Strong' at 8:30 AM")
+            print(f"\n✗ No classes found matching 'LF3 Strong' at 12:30 PM")
 
 if __name__ == "__main__":
     main()

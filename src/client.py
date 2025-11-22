@@ -255,3 +255,126 @@ class AlteaClient:
                         matches.append(event)
         
         return matches
+    
+    def book_class(self, class_url: str, for_wife: bool = False):
+        """
+        Books a class by navigating to the class page and clicking the Book Now button.
+        
+        Args:
+            class_url: The URL of the class (e.g., /booking/evt_xxx)
+            for_wife: Whether to book for wife (if applicable)
+        
+        Returns:
+            True if booking was successful, False otherwise
+        """
+        print(f"\nBooking class: {class_url}")
+        
+        try:
+            # Navigate to the class page
+            full_url = f"https://myaltea.app{class_url}"
+            self.page.goto(full_url)
+            self.page.wait_for_load_state("networkidle")
+            
+            print(f"Loaded class page: {self.page.url}")
+            
+            # Wait for the page to fully load
+            self.page.wait_for_timeout(2000)
+            
+            # Try to find and click the "Book Now" button
+            # First try using the XPath you provided
+            try:
+                print("Looking for Book Now button using XPath...")
+                book_button = self.page.locator("xpath=/html/body/div[4]/div/div/div/button")
+                
+                if book_button.count() > 0:
+                    print("Found button via XPath, clicking...")
+                    book_button.click()
+                    print("✓ Clicked Book Now button!")
+                    
+                    # Wait for confirmation dialog to appear
+                    self.page.wait_for_timeout(2000)
+                    
+                    # Take a screenshot of the confirmation dialog
+                    self.page.screenshot(path="debug_booking_confirmation.png")
+                    print("Saved screenshot: debug_booking_confirmation.png")
+                    
+                    # Now click the "Confirm booking" button
+                    print("Looking for Confirm booking button...")
+                    confirm_button = self.page.locator("xpath=/html/body/div[5]/div/div[3]/div/button")
+                    
+                    if confirm_button.count() > 0:
+                        print("Found Confirm booking button, clicking...")
+                        confirm_button.click()
+                        print("✓ Clicked Confirm booking button!")
+                        
+                        # Wait for booking to complete
+                        self.page.wait_for_timeout(3000)
+                        
+                        # Take a screenshot of the final result
+                        self.page.screenshot(path="debug_booking_result.png")
+                        print("Saved screenshot: debug_booking_result.png")
+                        
+                        return True
+                    else:
+                        print("✗ Could not find Confirm booking button")
+                        self.page.screenshot(path="debug_booking_error.png")
+                        print("Saved screenshot: debug_booking_error.png")
+                        return False
+                else:
+                    print("Button not found via XPath, trying text-based selector...")
+                    # Try finding by text
+                    book_button = self.page.locator("button:has-text('Book Now'), button:has-text('Book')")
+                    
+                    if book_button.count() > 0:
+                        print("Found button via text, clicking...")
+                        book_button.first.click()
+                        print("✓ Clicked Book Now button!")
+                        
+                        # Wait for confirmation dialog to appear
+                        self.page.wait_for_timeout(2000)
+                        
+                        # Take a screenshot of the confirmation dialog
+                        self.page.screenshot(path="debug_booking_confirmation.png")
+                        print("Saved screenshot: debug_booking_confirmation.png")
+                        
+                        # Now click the "Confirm booking" button
+                        print("Looking for Confirm booking button...")
+                        confirm_button = self.page.locator("xpath=/html/body/div[5]/div/div[3]/div/button")
+                        
+                        if confirm_button.count() > 0:
+                            print("Found Confirm booking button, clicking...")
+                            confirm_button.click()
+                            print("✓ Clicked Confirm booking button!")
+                            
+                            # Wait for booking to complete
+                            self.page.wait_for_timeout(3000)
+                            
+                            # Take a screenshot of the final result
+                            self.page.screenshot(path="debug_booking_result.png")
+                            print("Saved screenshot: debug_booking_result.png")
+                            
+                            return True
+                        else:
+                            print("✗ Could not find Confirm booking button")
+                            self.page.screenshot(path="debug_booking_error.png")
+                            print("Saved screenshot: debug_booking_error.png")
+                            return False
+                    else:
+                        print("✗ Could not find Book Now button")
+                        self.page.screenshot(path="debug_booking_error.png")
+                        print("Saved screenshot: debug_booking_error.png")
+                        return False
+                        
+            except Exception as e:
+                print(f"Error clicking Book Now button: {e}")
+                self.page.screenshot(path="debug_booking_error.png")
+                print("Saved screenshot: debug_booking_error.png")
+                return False
+                
+        except Exception as e:
+            print(f"Error booking class: {e}")
+            import traceback
+            traceback.print_exc()
+            self.page.screenshot(path="debug_booking_error.png")
+            print("Saved screenshot: debug_booking_error.png")
+            return False
