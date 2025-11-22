@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Config files with credentials
+config.yaml
+
+# Debug files
+debug_*.png
+debug_*.txt
+*.log
+
+# Playwright
+.playwright/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HAR files (may contain sensitive data)
+*.har
+
