@@ -1,10 +1,14 @@
 import sys
 import os
 import argparse
+import warnings
 from datetime import datetime
 from dotenv import load_dotenv
 from src.client import AlteaClient
 from src.notifications import EmailNotifier
+
+# Suppress urllib3 OpenSSL warning on macOS
+warnings.filterwarnings('ignore', message='.*OpenSSL.*')
 
 # Load environment variables from .env file
 load_dotenv()
