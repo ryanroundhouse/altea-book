@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""
+Booking script that reads from the classes.yaml control file.
+This script is meant to be called by cron jobs set up by the scheduler.
+"""
+
+import sys
+import os
+import argparse
+from datetime import datetime, timedelta
+from pathlib import Path
+import yaml
+from dotenv import load_dotenv
+
+# Add the project root to the path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+from src.client import AlteaClient
+from src.notifications import EmailNotifier
+
+# Load environment variables
+load_dotenv()
+
+
+def load_config(config_path='classes.yaml'):
+    """Load the classes configuration file."""
+    config_file = project_root / config_path
+    
+    if not config_file.exists():
+        print(f"Error: Configuration file not found: {config_file}")
+        sys.exit(1)
+    
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    return config
+
+
+def get_day_name(date_obj):
+    """Get the day name (Monday, Tuesday, etc.) from a date object."""
+    return date_obj.strftime('%A')
+
+
+def find_class_for_date(config, target_date):
+    """
+    Find the class configuration for a given date.
+    
+    Args:
+        config: The loaded YAML configuration
+        target_date: datetime object for the target date
+    
+    Returns:
+        Class configuration dict or None if not found
+    """
+    day_name = get_day_name(target_date)
+    
+    for class_config in config.get('classes', []):
+        if class_config['day'] == day_name:
+            return class_config
+    
+    return None
+
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description='Book a class from the control file for a specific date',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  # Book class for today
+  python book_from_config.py
+  
+  # Book class for a specific date
+  python book_from_config.py --date 2025-11-25
+  
+  # Book class for next Monday
+  python book_from_config.py --date 2025-12-02
+        '''
+    )
+    
+    parser.add_argument('--date',
+                       help='Target date for the class (format: YYYY-MM-DD). Defaults to today.')
+    parser.add_argument('--config',
+                       default='classes.yaml',
+                       help='Path to the configuration file (default: classes.yaml)')
+    parser.add_argument('--dry-run',
+                       action='store_true',
+                       help='Show what would be booked without actually booking')
+    
+    return parser.parse_args()
+
+
+def main():
+    args = parse_arguments()
+    
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d')
+        except ValueError:
+            print(f"Error: Invalid date format: {args.date}. Expected YYYY-MM-DD")
+            sys.exit(1)
+    else:
+        target_date = datetime.now()
+    
+    # Load configuration
+    config = load_config(args.config)
+    
+    # Find class for this date
+    class_config = find_class_for_date(config, target_date)
+    
+    if not class_config:
+        day_name = get_day_name(target_date)
+        print(f"No class configured for {day_name} ({target_date.strftime('%Y-%m-%d')})")
+        sys.exit(0)
+    
+    # Format date for the booking script (DD-MM-YYYY)
+    formatted_date = target_date.strftime('%d-%m-%Y')
+    
+    # Get settings
+    settings = config.get('settings', {})
+    headless = settings.get('headless', True)
+    
+    print(f"\n{'='*70}")
+    print(f"BOOKING FROM CONFIG FILE")
+    print(f"{'='*70}")
+    print(f"Target Date: {formatted_date} ({get_day_name(target_date)})")
+    print(f"Class Time: {class_config['time']}")
+    print(f"Class Name: {class_config['name']}")
+    print(f"For Wife: {class_config.get('for_wife', False)}")
+    print(f"Headless: {headless}")
+    print(f"{'='*70}\n")
+    
+    if args.dry_run:
+        print("DRY RUN - No booking will be made")
+        return
+    
+    # Load credentials
+    email = os.getenv('ALTEA_EMAIL')
+    password = os.getenv('ALTEA_PASSWORD')
+    
+    if not email or not password:
+        print("Error: ALTEA_EMAIL and ALTEA_PASSWORD must be set in .env file")
+        sys.exit(1)
+    
+    # Initialize email notifier
+    try:
+        notifier = EmailNotifier()
+        print("✓ Email notifier initialized")
+    except ValueError as e:
+        print(f"⚠ Warning: Email notifications disabled - {e}")
+        notifier = None
+    
+    # Book the class using the AlteaClient
+    with AlteaClient(email, password, headless=headless) as client:
+        # Step 1: Login
+        if not client.login():
+            print("Login failed, exiting.")
+            sys.exit(1)
+        
+        # Step 2: Get schedule
+        schedule = client.get_schedule(formatted_date)
+        print(f"\n{'='*70}")
+        print(f"Found {len(schedule)} classes on {formatted_date}")
+        print(f"{'='*70}")
+        
+        # Step 3: Find the class
+        matches = client.find_class(schedule, class_config['name'], class_config['time'])
+        
+        if matches:
+            print(f"\n✓ Found {len(matches)} matching class(es)")
+            
+            for match in matches:
+                print(f"\n  Title: {match['title']}")
+                print(f"  Time: {match.get('time', 'N/A')}")
+                print(f"  Spots Left: {match.get('spots_left', 'N/A')}")
+                print(f"  Can Book: {match.get('can_book', False)}")
+                
+                class_info = {
+                    'title': match['title'],
+                    'date': formatted_date,
+                    'time': match.get('time', 'N/A'),
+                    'spots_left': match.get('spots_left', 'N/A'),
+                    'url': match.get('url', '')
+                }
+                
+                for_wife = class_config.get('for_wife', False)
+                
+                if match.get('can_book', False):
+                    success = client.book_class(match['url'])
+                    if success:
+                        print("\n✓ Successfully booked class!")
+                        if notifier:
+                            try:
+                                notifier.send_booking_success(class_info, for_wife=for_wife)
+                            except Exception as e:
+                                print(f"Warning: Failed to send success email: {e}")
+                    else:
+                        print("\n✗ Failed to book class")
+                        if notifier:
+                            try:
+                                notifier.send_booking_failure(
+                                    class_info,
+                                    "Failed to complete booking process.",
+                                    for_wife=for_wife
+                                )
+                            except Exception as e:
+                                print(f"Warning: Failed to send failure email: {e}")
+                else:
+                    print("\n⚠ Class is full or not bookable")
+                    if notifier:
+                        try:
+                            notifier.send_booking_failure(
+                                class_info,
+                                f"Class is full or not bookable. Spots left: {match.get('spots_left', 'Unknown')}",
+                                for_wife=for_wife
+                            )
+                        except Exception as e:
+                            print(f"Warning: Failed to send failure email: {e}")
+        else:
+            print(f"\n✗ No classes found matching '{class_config['name']}' at {class_config['time']}")
+            if notifier:
+                try:
+                    class_info = {
+                        'title': class_config['name'],
+                        'date': formatted_date,
+                        'time': class_config['time'],
+                        'spots_left': 'N/A',
+                        'url': ''
+                    }
+                    notifier.send_booking_failure(
+                        class_info,
+                        "Could not find the specified class in the schedule.",
+                        for_wife=class_config.get('for_wife', False)
+                    )
+                except Exception as e:
+                    print(f"Warning: Failed to send failure email: {e}")
+
+
+if __name__ == "__main__":
+    main()
+

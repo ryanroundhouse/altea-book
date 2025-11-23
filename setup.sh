@@ -97,8 +97,9 @@ else
     echo "✓ .env already exists"
 fi
 
-# Create src directory if it doesn't exist
+# Create directories if they don't exist
 mkdir -p src
+mkdir -p logs
 
 echo ""
 echo "==================================="
@@ -108,10 +109,16 @@ echo ""
 echo "Next steps:"
 echo "1. Edit .env with your credentials (ALTEA_EMAIL and ALTEA_PASSWORD)"
 echo "2. (Optional) Add Mailgun settings to .env for email notifications"
-echo "3. Activate the virtual environment: source venv/bin/activate"
-echo "4. Run the script: python main.py"
+echo "3. Edit classes.yaml to configure your weekly class schedule"
+echo "4. Activate the virtual environment: source venv/bin/activate"
 echo ""
-echo "To run on a schedule (cron), add this line to your crontab:"
-echo "0 9 * * * cd $(pwd) && $(pwd)/venv/bin/python $(pwd)/main.py >> $(pwd)/booking.log 2>&1"
+echo "Manual booking:"
+echo "  python main.py \"29-11-2025\" \"8:30 AM\" \"LF3 Strong\""
+echo ""
+echo "Automatic scheduling:"
+echo "  python scheduler.py --dry-run    # Preview cron jobs"
+echo "  python scheduler.py --install    # Install cron jobs"
+echo ""
+echo "See SCHEDULING_GUIDE.md for detailed instructions."
 echo ""
 

@@ -2,13 +2,18 @@
 
 Automated booking script for Altea Active classes using browser automation.
 
+> **Quick Start**: New to this? See [QUICK_START.md](QUICK_START.md) for a 5-minute setup guide.
+>
+> **Scheduling Guide**: Learn how to set up automatic weekly bookings in [SCHEDULING_GUIDE.md](SCHEDULING_GUIDE.md).
+
 ## Features
 
 - 🤖 Automated login and booking via headless browser
-- 📅 Schedule-based class booking (runs via cron)
+- 📅 Weekly schedule-based booking with automatic cron setup
 - 🔒 Secure credential management via config file
 - 🐧 Linux server compatible (headless Chromium)
 - 📧 Email notifications via Mailgun (success/failure alerts)
+- ⚙️ YAML configuration for recurring weekly classes
 
 ## Quick Setup
 
@@ -49,11 +54,31 @@ WIFE_EMAIL=wife-email@example.com  # Optional
 
 **Note:** Email notifications are optional. If you don't configure Mailgun, the script will still work but won't send emails.
 
-### 3. Test the script
+### 3. Configure your weekly classes
 
+Edit `classes.yaml` to define which classes you want each week:
+
+```yaml
+classes:
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false
+```
+
+**Booking Rule**: All classes automatically book 7 days and 1 hour before the class time. For example, a Monday 4:30 PM class will be booked on the previous Monday at 3:30 PM.
+
+### 4. Test the script
+
+Manual booking for a specific date:
 ```bash
 source venv/bin/activate
-python main.py
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+```
+
+Or test booking from your configuration:
+```bash
+python book_from_config.py --date 2025-12-02 --dry-run
 ```
 
 ## Manual Setup (if setup.sh doesn't work)
@@ -73,20 +98,106 @@ playwright install chromium
 playwright install-deps chromium  # Linux only
 ```
 
-## Running on a Schedule (Cron)
+## Automatic Scheduling with Cron
 
-To automatically book classes when the booking window opens:
+The scheduler automatically sets up cron jobs based on your `classes.yaml` configuration.
+
+### View what would be scheduled:
 
 ```bash
-crontab -e
+python scheduler.py --dry-run
 ```
 
-Add this line (adjust paths and timing as needed):
+### Install the cron jobs:
 
+```bash
+python scheduler.py --install
 ```
-# Run every day at 9 AM
-0 9 * * * cd /path/to/altea-book && /path/to/altea-book/venv/bin/python /path/to/altea-book/main.py >> /path/to/altea-book/booking.log 2>&1
+
+This will:
+- Read your `classes.yaml` configuration
+- Calculate when each booking window opens
+- Install cron jobs to automatically book classes at the right time
+- Create logs in the `logs/` directory
+
+### Remove installed cron jobs:
+
+```bash
+python scheduler.py --remove
 ```
+
+### View your scheduled jobs:
+
+```bash
+crontab -l
+```
+
+## Usage Examples
+
+### Manual Booking
+
+Book a specific class on a specific date:
+
+```bash
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+
+# Book for your wife
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --for-wife
+```
+
+### Config-Based Booking
+
+Book based on your weekly schedule configuration:
+
+```bash
+# Book class for next Monday (based on classes.yaml)
+python book_from_config.py --date 2025-12-02
+
+# Dry run to see what would be booked
+python book_from_config.py --date 2025-12-02 --dry-run
+```
+
+## How It Works
+
+### The Complete Workflow
+
+1. **Configure your weekly schedule** (`classes.yaml`):
+   - Define which classes you want on which days
+   - Booking windows are automatically calculated (7 days and 1 hour before)
+
+2. **Set up automatic scheduling** (`scheduler.py`):
+   - Reads your configuration
+   - Calculates booking times (class time minus 1 hour, 7 days before)
+   - Installs cron jobs that trigger at booking window openings
+
+3. **Automatic booking** (`book_from_config.py`):
+   - Triggered by cron at the right time
+   - Reads the configuration to know what to book
+   - Calculates the target date (e.g., 7 days from now)
+   - Books the class automatically
+   - Sends email notifications
+
+### Example
+
+You want to book "LF3 Strong" every Monday at 4:30 PM. Booking opens the previous Monday at 3:30 PM.
+
+**Step 1:** Add to `classes.yaml`:
+```yaml
+classes:
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false
+```
+
+The system automatically calculates that booking opens 7 days and 1 hour before (3:30 PM).
+
+**Step 2:** Install the scheduler:
+```bash
+python scheduler.py --install
+```
+
+**Result:** Every Monday at 3:30 PM, the system will automatically book "LF3 Strong" for the following Monday at 4:30 PM.
 
 ## Design
 

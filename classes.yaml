@@ -1,0 +1,54 @@
+# Weekly Class Schedule Configuration
+# Define the classes you want to book each week
+#
+# BOOKING RULE: All classes open for booking 7 days and 1 hour before the class time.
+# Example: Monday 4:30 PM class opens for booking the previous Monday at 3:30 PM
+
+classes:
+  # Monday classes
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false  # Set to true to book for your wife
+  
+  # Tuesday classes
+  # - day: Tuesday
+  #   time: "4:30 PM"
+  #   name: "LF3 Strong"
+  #   for_wife: false
+  
+  # Wednesday classes
+  - day: Wednesday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false
+  
+  # Thursday classes
+  - day: Thursday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false
+  
+  # Friday classes
+  - day: Friday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    for_wife: false
+  
+  # Saturday classes
+  - day: Saturday
+    time: "10:30 AM"
+    name: "Sweat Box"
+    for_wife: false
+  
+  # Sunday classes
+  # - day: Sunday
+  #   time: "10:00 AM"
+  #   name: "Sunday Stretch"
+  #   for_wife: false
+
+# Global settings
+settings:
+  headless: true  # Run browser in headless mode for cron jobs
+  timezone: "America/Toronto"  # Your local timezone
+

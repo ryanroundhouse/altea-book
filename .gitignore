@@ -7,6 +7,7 @@ __pycache__/
 venv/
 env/
 ENV/
+logs/
 
 # Config files with credentials
 .env
@@ -15,6 +16,7 @@ ENV/
 debug_*.png
 debug_*.txt
 *.log
+logs/
 
 # Playwright
 .playwright/
