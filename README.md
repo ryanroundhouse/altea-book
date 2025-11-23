@@ -8,7 +8,7 @@ Automated booking script for Altea Active classes using browser automation.
 - 📅 Schedule-based class booking (runs via cron)
 - 🔒 Secure credential management via config file
 - 🐧 Linux server compatible (headless Chromium)
-- 📧 Email notifications (coming soon)
+- 📧 Email notifications via Mailgun (success/failure alerts)
 
 ## Quick Setup
 
@@ -26,13 +26,28 @@ This will:
 
 ### 2. Configure your credentials
 
-Edit `config.yaml`:
+Copy `env.example` to `.env`:
 
-```yaml
-credentials:
-  email: "your-email@example.com"
-  password: "your-password"
+```bash
+cp env.example .env
 ```
+
+Edit `.env` with your credentials:
+
+```bash
+# Altea Active Credentials (required)
+ALTEA_EMAIL=your-email@example.com
+ALTEA_PASSWORD=your-password-here
+
+# Mailgun Configuration (optional - for email notifications)
+MAILGUN_DOMAIN=your-mailgun-domain.mailgun.org
+MAILGUN_API_KEY=key-your-api-key-here
+FROM_EMAIL=altea-booking@your-domain.com
+TO_EMAIL=your-email@example.com
+WIFE_EMAIL=wife-email@example.com  # Optional
+```
+
+**Note:** Email notifications are optional. If you don't configure Mailgun, the script will still work but won't send emails.
 
 ### 3. Test the script
 
@@ -91,11 +106,24 @@ Make sure system dependencies are installed:
 playwright install-deps chromium
 ```
 
+## Email Notifications
+
+The bot sends email notifications for:
+- ✅ **Successful bookings** - Confirms class, date, time, and spots left
+- ❌ **Failed bookings** - Includes error details and troubleshooting info
+- 👥 **Wife bookings** - Sends to both you and your wife when booking for her
+
+Email notifications use [Mailgun](https://www.mailgun.com/) API. You'll need:
+1. A Mailgun account (free tier available)
+2. A verified domain or use Mailgun's sandbox domain
+3. Your API key from the Mailgun dashboard
+
 ## Security Notes
 
-- Never commit `config.yaml` with real credentials
-- The `.gitignore` file excludes sensitive files
-- Credentials are only stored locally
+- Never commit `.env` with real credentials
+- The `.gitignore` file excludes the `.env` file
+- All credentials are stored locally in `.env`
+- Use environment variables for all sensitive configuration
 
 ## License
 

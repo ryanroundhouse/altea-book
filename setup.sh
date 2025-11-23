@@ -68,21 +68,33 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "✓ System dependencies installed"
 fi
 
-# Create config.yaml if it doesn't exist
-if [ ! -f "config.yaml" ]; then
+# Create .env if it doesn't exist
+if [ ! -f ".env" ]; then
     echo ""
-    echo "Creating config.yaml template..."
-    cat > config.yaml << 'EOF'
-credentials:
-  email: "your-email@example.com"
-  password: "YOUR_PASSWORD_HERE"
+    echo "Creating .env from template..."
+    if [ -f "env.example" ]; then
+        cp env.example .env
+        echo "✓ .env created from env.example"
+    else
+        cat > .env << 'EOF'
+# Altea Active Credentials
+ALTEA_EMAIL=your-email@example.com
+ALTEA_PASSWORD=your-password-here
+
+# Mailgun Configuration (optional)
+MAILGUN_DOMAIN=your-mailgun-domain.mailgun.org
+MAILGUN_API_KEY=key-your-api-key-here
+FROM_EMAIL=altea-booking@your-domain.com
+TO_EMAIL=your-email@example.com
+WIFE_EMAIL=wife-email@example.com
 EOF
-    echo "✓ config.yaml created"
+        echo "✓ .env created"
+    fi
     echo ""
-    echo "⚠️  IMPORTANT: Please edit config.yaml and add your credentials!"
+    echo "⚠️  IMPORTANT: Please edit .env and add your credentials!"
 else
     echo ""
-    echo "✓ config.yaml already exists"
+    echo "✓ .env already exists"
 fi
 
 # Create src directory if it doesn't exist
@@ -94,9 +106,10 @@ echo "✓ Setup Complete!"
 echo "==================================="
 echo ""
 echo "Next steps:"
-echo "1. Edit config.yaml with your credentials"
-echo "2. Activate the virtual environment: source venv/bin/activate"
-echo "3. Run the script: python main.py"
+echo "1. Edit .env with your credentials (ALTEA_EMAIL and ALTEA_PASSWORD)"
+echo "2. (Optional) Add Mailgun settings to .env for email notifications"
+echo "3. Activate the virtual environment: source venv/bin/activate"
+echo "4. Run the script: python main.py"
 echo ""
 echo "To run on a schedule (cron), add this line to your crontab:"
 echo "0 9 * * * cd $(pwd) && $(pwd)/venv/bin/python $(pwd)/main.py >> $(pwd)/booking.log 2>&1"

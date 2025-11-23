@@ -9,7 +9,7 @@ env/
 ENV/
 
 # Config files with credentials
-config.yaml
+.env
 
 # Debug files
 debug_*.png
