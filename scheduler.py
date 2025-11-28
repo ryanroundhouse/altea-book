@@ -50,7 +50,7 @@ def parse_time(time_str):
 
 def calculate_booking_time(class_time_str):
     """
-    Calculate booking time (1 hour before class time).
+    Calculate booking time (59 minutes before class time).
     
     Args:
         class_time_str: Class time string (e.g., "4:30 PM")
@@ -60,17 +60,21 @@ def calculate_booking_time(class_time_str):
     """
     hour, minute = parse_time(class_time_str)
     
-    # Subtract 1 hour
-    booking_hour = hour - 1
+    # Subtract 59 minutes
+    total_minutes = hour * 60 + minute
+    booking_minutes = total_minutes - 59
     
-    # Handle wrap-around (e.g., 12:30 AM class -> 11:30 PM previous day)
+    # Handle wrap-around (e.g., 12:30 AM class -> 11:31 PM previous day)
     # Note: This would require the cron to run on the previous day,
     # which complicates things. For now, assume no classes start before 1 AM.
-    if booking_hour < 0:
+    if booking_minutes < 0:
         raise ValueError(f"Class time {class_time_str} is too early (before 1:00 AM). "
                         "Booking would need to be the previous day, which is not supported.")
     
-    return booking_hour, minute
+    booking_hour = booking_minutes // 60
+    booking_minute = booking_minutes % 60
+    
+    return booking_hour, booking_minute
 
 
 def day_to_cron_day(day_name):
@@ -107,7 +111,7 @@ def generate_cron_entry(class_config, project_root, python_path, is_macos=True):
     """
     Generate a cron job entry for a class configuration.
     
-    Booking rule: All classes open 7 days and 1 hour before the class time.
+    Booking rule: All classes open 7 days and 59 minutes before the class time.
     
     Args:
         class_config: Class configuration from YAML
@@ -118,10 +122,10 @@ def generate_cron_entry(class_config, project_root, python_path, is_macos=True):
     Returns:
         Cron job string and class config
     """
-    # Hardcoded rule: booking opens 7 days and 1 hour before
+    # Hardcoded rule: booking opens 7 days and 59 minutes before
     days_before = 7
     
-    # Calculate booking time (1 hour before class time)
+    # Calculate booking time (59 minutes before class time)
     class_time = class_config['time']
     hour, minute = calculate_booking_time(class_time)
     
@@ -182,7 +186,7 @@ def generate_crontab(config, project_root, python_path, is_macos=True):
         
         # Add comment for readability
         lines.append(f'# {cls["day"]} {cls["time"]} - {cls["name"]}')
-        lines.append(f'# Books 7 days in advance, 1 hour before class (at {booking_time_24h})')
+        lines.append(f'# Books 7 days in advance, 59 minutes before class (at {booking_time_24h})')
         lines.append(cron_line)
         lines.append('')
     
