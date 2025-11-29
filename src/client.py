@@ -272,8 +272,11 @@ class AlteaClient:
         try:
             # Navigate to the class page
             full_url = f"https://myaltea.app{class_url}"
-            self.page.goto(full_url)
-            self.page.wait_for_load_state("networkidle")
+            self.page.goto(full_url, timeout=60000)  # 60 second timeout for initial load
+            # Use 'domcontentloaded' instead of 'networkidle' since the booking page
+            # has continuous network activity (websockets, analytics) that prevents
+            # it from ever reaching a truly idle state
+            self.page.wait_for_load_state("domcontentloaded")
             
             print(f"Loaded class page: {self.page.url}")
             
