@@ -19,7 +19,17 @@ Each class entry in `classes.yaml` has these fields:
 - day: Monday              # Day of the week for the class
   time: "4:30 PM"          # Time of the class
   name: "LF3 Strong"       # Class name (partial match works)
-  for_wife: false          # true = book for wife, false = book for you
+  user: ryan               # User from users.yaml to book for
+```
+
+Each user in `users.yaml` has these fields:
+
+```yaml
+users:
+  ryan:
+    altea_email: ryan@example.com      # Altea login email
+    altea_password: secret123          # Altea login password
+    notification_email: ryan@example.com  # Email for notifications
 ```
 
 **Booking Window**: All classes automatically open for booking **7 days and 1 hour before** the class time. For example:
@@ -36,27 +46,27 @@ All fitness classes open for booking **7 days and 1 hour before** the class time
 
 ### Multiple Classes
 
-You can configure multiple classes for different days:
+You can configure multiple classes for different days and users:
 
 ```yaml
 classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan
   
   - day: Wednesday
     time: "6:00 AM"
     name: "Hot Vinyasa"
-    for_wife: false
+    user: ryan
   
   - day: Friday
     time: "12:30 PM"
     name: "Pilates"
-    for_wife: true
+    user: katie
 ```
 
-All classes automatically book 7 days and 1 hour before the class time.
+All classes automatically book 7 days and 1 hour before the class time, using the credentials for the specified user.
 
 ## Scheduler Commands
 
@@ -198,16 +208,29 @@ classes:
   - day: Monday
     time: "6:00 AM"
     name: "Hot Vinyasa"
-    booking_window:
-      days_before: 7
-      time: "5:00 AM"
+    user: ryan
   
   - day: Friday
     time: "6:00 AM"
     name: "Hot Vinyasa"
-    booking_window:
-      days_before: 7
-      time: "5:00 AM"
+    user: ryan
+```
+
+### Same class for multiple users
+
+If multiple users want the same class, stagger the times by 1 minute:
+
+```yaml
+classes:
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    user: ryan
+  
+  - day: Monday
+    time: "4:31 PM"  # Staggered to avoid cron conflicts
+    name: "LF3 Strong"
+    user: katie
 ```
 
 ### Testing without disrupting cron
@@ -223,9 +246,9 @@ python scheduler.py --dry-run
 1. Edit `classes.yaml`
 2. Run `python scheduler.py --install` (it will update existing jobs)
 
-### Booking for your wife
+### Booking for different users
 
-Set `for_wife: true` in the class configuration. If configured, emails will be sent to both you and your wife.
+Set the `user` field to the appropriate user name from `users.yaml`. Each user gets their own email notifications.
 
 ## Advanced: Understanding the Date Calculation
 

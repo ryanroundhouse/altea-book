@@ -11,6 +11,7 @@ logs/
 
 # Config files with credentials
 .env
+users.yaml
 
 # Debug files
 debug_*.png

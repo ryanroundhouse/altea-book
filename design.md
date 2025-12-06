@@ -4,13 +4,12 @@
 This project aims to automate the process of booking gym classes at Altea Active. The system will run on a Linux server and automatically book specific classes for the primary user and/or their partner as soon as the booking window opens.
 
 ## 2. Requirements
-*   **Users**: Primary account holder + associated partner account.
-*   **Selection**: Bookings are based on Class Name, Date, and Time.
+*   **Users**: Multiple independent users, each with their own Altea credentials.
+*   **Selection**: Bookings are based on Class Name, Date, Time, and User.
 *   **Timing**: Booking window opens **1 week + 1 hour** before the class start time.
-*   **Platform**: Python script executed via Cron on a Linux server.
+*   **Platform**: Python script executed via Cron on a Linux/macOS server.
 *   **Notifications**:
-    *   Primary User bookings: Email to Primary.
-    *   Partner bookings: Email to Primary + Partner.
+    *   Each user receives notifications for their own bookings.
     *   Triggers: On both success and failure.
 
 ## 3. Architecture
@@ -59,36 +58,44 @@ This project aims to automate the process of booking gym classes at Altea Active
 4.  **Booking**: Script sends a POST request to the booking endpoint with the User IDs.
 5.  **Notification**: Success email sent to relevant parties.
 
-## 5. Configuration Draft (`config.yaml`)
+## 5. Configuration
+
+### `users.yaml` (gitignored - contains credentials)
 
 ```yaml
-credentials:
-  email: "rg@ryangraham.ca"
-  password: "..."
-
-notification:
-  smtp_server: "smtp.gmail.com"
-  smtp_port: 587
-  username: "..."
-  password: "..."
-  primary_email: "rg@ryangraham.ca"
-  partner_email: "wife@example.com"
-
-# We need to discover the internal IDs for users
 users:
-  ryan: "user_id_1"
-  wife: "user_id_2"
+  ryan:
+    altea_email: "ryan@example.com"
+    altea_password: "..."
+    notification_email: "ryan@example.com"
+  
+  katie:
+    altea_email: "katie@example.com"
+    altea_password: "..."
+    notification_email: "katie@example.com"
+```
 
-# The classes we want to book
-targets:
-  - name: "Hot Yoga"
-    day_of_week: "Tuesday"
-    time: "18:00"
-    attendees: ["ryan", "wife"]
-  - name: "Spin"
-    day_of_week: "Thursday"
-    time: "07:00"
-    attendees: ["ryan"]
+### `.env` (gitignored - Mailgun config)
+
+```bash
+MAILGUN_DOMAIN=mg.yourdomain.com
+MAILGUN_API_KEY=key-xxx
+FROM_EMAIL=altea-booking@yourdomain.com
+```
+
+### `classes.yaml` (weekly schedule)
+
+```yaml
+classes:
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    user: ryan
+  
+  - day: Tuesday
+    time: "6:00 AM"
+    name: "Hot Yoga"
+    user: katie
 ```
 
 ## 6. Unknowns & Next Steps (Reverse Engineering)

@@ -42,7 +42,9 @@ This document provides a high-level overview of the automatic booking system.
 
 ### Configuration Files
 - **`classes.yaml`** - Weekly class schedule configuration
-- **`.env`** - Credentials and API keys (never commit this!)
+- **`users.yaml`** - User credentials (never commit this!)
+- **`users.example.yaml`** - Template for users.yaml
+- **`.env`** - Mailgun API keys (never commit this!)
 - **`env.example`** - Template for .env file
 
 ### Core Scripts
@@ -82,10 +84,10 @@ classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan  # References a user defined in users.yaml
 ```
 
-This means: "I want LF3 Strong every Monday at 4:30 PM." The system automatically calculates that booking opens 7 days and 1 hour before (3:30 PM).
+This means: "Book LF3 Strong every Monday at 4:30 PM for ryan." The system automatically calculates that booking opens 7 days and 1 hour before (3:30 PM) and uses ryan's credentials from `users.yaml`.
 
 ### 2. Scheduler (`scheduler.py`)
 
@@ -118,9 +120,9 @@ Every Monday at 3:30 PM, cron automatically:
 This script:
 1. Receives the target date from cron
 2. Reads `classes.yaml` to find what class to book
-3. Extracts booking details (time, name, for_wife)
-4. Calls the core booking logic
-5. Sends email notifications
+3. Looks up user credentials from `users.yaml`
+4. Logs in as that user and books the class
+5. Sends email notifications to the user
 
 ### 5. Core Booking (`main.py` / `AlteaClient`)
 
@@ -137,7 +139,7 @@ The AlteaClient:
 The EmailNotifier:
 1. Sends success/failure emails via Mailgun
 2. Includes class details, spots left, etc.
-3. Sends to both you and wife (if booking for wife)
+3. Sends to the user's notification email (from `users.yaml`)
 
 ## Data Flow Example
 
@@ -159,15 +161,16 @@ Let's trace a booking for "LF3 Strong" on Monday, December 9, 2025:
 
 4. **Script reads config**:
    - Finds: Monday = "LF3 Strong" at 4:30 PM
-   - for_wife = false
+   - user = ryan
+   - Loads ryan's credentials from `users.yaml`
 
 5. **Launches browser** (headless):
-   - Login to Altea
+   - Login to Altea as ryan
    - Navigate to schedule for 2025-12-09
    - Find "LF3 Strong" at 4:30 PM
    - Click "Book" button
 
-6. **Sends email**:
+6. **Sends email to ryan**:
    - ✅ Success! Booked "LF3 Strong" for Dec 9 at 4:30 PM
    - Spots left: 5
    - Date: 09-12-2025
@@ -186,7 +189,7 @@ Let's trace a booking for "LF3 Strong" on Monday, December 9, 2025:
 ### 🔄 Recurring Weekly Bookings
 - Define once, runs forever
 - Each day can have multiple classes
-- Different settings per class (for_wife, etc.)
+- Multiple users supported (each with their own credentials)
 
 ### 🤖 Fully Automated
 - No manual intervention needed
@@ -260,34 +263,49 @@ classes:
   - day: Saturday
     time: "9:00 AM"
     name: "Bootcamp"
-    for_wife: false
+    user: ryan
 ```
 
 Then: `python scheduler.py --install`
 
 The system will automatically book it 7 days and 1 hour before (Saturday at 8:00 AM).
 
+### Add New User
+
+Edit `users.yaml`:
+```yaml
+users:
+  # ... existing users ...
+  
+  marcus:
+    altea_email: marcus@example.com
+    altea_password: secret123
+    notification_email: marcus@example.com
+```
+
+Then reference them in `classes.yaml` with `user: marcus`.
+
 ### Different Booking Times
 
 The booking rule (7 days and 1 hour before) is hardcoded for all classes. If you need different timing, you would need to modify the `calculate_booking_time()` function in `scheduler.py`.
 
-### Book for Both You and Wife
+### Book Same Class for Multiple Users
 
-Add two entries for the same class with slightly different times:
+Add separate entries for each user with slightly different times:
 ```yaml
 classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false  # Books for you at 3:30 PM
+    user: ryan  # Books for ryan at 3:31 PM
   
   - day: Monday
-    time: "4:31 PM"  # Use 4:31 PM to trigger booking at 3:31 PM
+    time: "4:31 PM"  # Stagger by 1 min to space cron jobs
     name: "LF3 Strong"
-    for_wife: true   # Books for wife 1 minute later
+    user: katie  # Books for katie at 3:32 PM
 ```
 
-**Note**: Adjusting the class time by 1 minute spaces the bookings 1 minute apart to avoid race conditions.
+**Note**: Staggering the class time by 1 minute spaces the bookings apart to avoid race conditions.
 
 ## Best Practices
 
@@ -306,7 +324,7 @@ classes:
 | Remove cron jobs | `python scheduler.py --remove` |
 | View cron jobs | `crontab -l` |
 | Test booking | `python book_from_config.py --date YYYY-MM-DD --dry-run` |
-| Manual booking | `python main.py "DD-MM-YYYY" "HH:MM AM/PM" "Class Name"` |
+| Manual booking | `python main.py "DD-MM-YYYY" "HH:MM AM/PM" "Class Name" --user ryan` |
 | View logs | `tail -f logs/booking_*.log` |
 | Check config | `cat classes.yaml` |
 

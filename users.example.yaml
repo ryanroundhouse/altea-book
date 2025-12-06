@@ -1,0 +1,29 @@
+# User Credentials Configuration
+# Copy this file to users.yaml and fill in your credentials
+#
+# IMPORTANT: users.yaml contains passwords and should NEVER be committed to git!
+# It is already listed in .gitignore
+#
+# Each user needs:
+#   - altea_email: Email address for Altea Active login
+#   - altea_password: Password for Altea Active login  
+#   - notification_email: Email address to receive booking notifications
+
+users:
+  # Example user - replace with your own
+  ryan:
+    altea_email: ryan@example.com
+    altea_password: your-password-here
+    notification_email: ryan@example.com
+  
+  katie:
+    altea_email: katie@example.com
+    altea_password: your-password-here
+    notification_email: katie@example.com
+  
+  # Add more users as needed:
+  # marcus:
+  #   altea_email: marcus@example.com
+  #   altea_password: your-password-here
+  #   notification_email: marcus@example.com
+

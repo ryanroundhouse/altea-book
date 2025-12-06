@@ -37,6 +37,48 @@ def load_config(config_path='classes.yaml'):
     return config
 
 
+def load_users(users_path='users.yaml'):
+    """Load the users configuration file."""
+    users_file = project_root / users_path
+    
+    if not users_file.exists():
+        print(f"Error: Users configuration file not found: {users_file}")
+        print("Copy users.example.yaml to users.yaml and configure your credentials.")
+        sys.exit(1)
+    
+    with open(users_file, 'r') as f:
+        users_config = yaml.safe_load(f)
+    
+    return users_config.get('users', {})
+
+
+def get_user_credentials(users, user_name):
+    """
+    Get credentials for a specific user.
+    
+    Args:
+        users: Dictionary of users from users.yaml
+        user_name: Name of the user to look up
+    
+    Returns:
+        Dictionary with altea_email, altea_password, notification_email
+    """
+    if user_name not in users:
+        print(f"Error: User '{user_name}' not found in users.yaml")
+        print(f"Available users: {', '.join(users.keys())}")
+        sys.exit(1)
+    
+    user = users[user_name]
+    
+    required_fields = ['altea_email', 'altea_password', 'notification_email']
+    for field in required_fields:
+        if field not in user or not user[field]:
+            print(f"Error: Missing '{field}' for user '{user_name}' in users.yaml")
+            sys.exit(1)
+    
+    return user
+
+
 def get_day_name(date_obj):
     """Get the day name (Monday, Tuesday, etc.) from a date object."""
     return date_obj.strftime('%A')
@@ -116,6 +158,16 @@ def main():
         print(f"No class configured for {day_name} ({target_date.strftime('%Y-%m-%d')})")
         sys.exit(0)
     
+    # Get user from class config
+    user_name = class_config.get('user')
+    if not user_name:
+        print(f"Error: No 'user' specified for {class_config['day']} class in classes.yaml")
+        sys.exit(1)
+    
+    # Load users and get credentials
+    users = load_users()
+    user_creds = get_user_credentials(users, user_name)
+    
     # Format date for the booking script (DD-MM-YYYY)
     formatted_date = target_date.strftime('%d-%m-%Y')
     
@@ -129,21 +181,13 @@ def main():
     print(f"Target Date: {formatted_date} ({get_day_name(target_date)})")
     print(f"Class Time: {class_config['time']}")
     print(f"Class Name: {class_config['name']}")
-    print(f"For Wife: {class_config.get('for_wife', False)}")
+    print(f"User: {user_name}")
     print(f"Headless: {headless}")
     print(f"{'='*70}\n")
     
     if args.dry_run:
         print("DRY RUN - No booking will be made")
         return
-    
-    # Load credentials
-    email = os.getenv('ALTEA_EMAIL')
-    password = os.getenv('ALTEA_PASSWORD')
-    
-    if not email or not password:
-        print("Error: ALTEA_EMAIL and ALTEA_PASSWORD must be set in .env file")
-        sys.exit(1)
     
     # Initialize email notifier
     try:
@@ -153,8 +197,8 @@ def main():
         print(f"⚠ Warning: Email notifications disabled - {e}")
         notifier = None
     
-    # Book the class using the AlteaClient
-    with AlteaClient(email, password, headless=headless) as client:
+    # Book the class using the AlteaClient with user-specific credentials
+    with AlteaClient(user_creds['altea_email'], user_creds['altea_password'], headless=headless) as client:
         # Step 1: Login
         if not client.login():
             print("Login failed, exiting.")
@@ -186,15 +230,17 @@ def main():
                     'url': match.get('url', '')
                 }
                 
-                for_wife = class_config.get('for_wife', False)
-                
                 if match.get('can_book', False):
                     success = client.book_class(match['url'])
                     if success:
                         print("\n✓ Successfully booked class!")
                         if notifier:
                             try:
-                                notifier.send_booking_success(class_info, for_wife=for_wife)
+                                notifier.send_booking_success(
+                                    class_info,
+                                    user_name=user_name,
+                                    user_email=user_creds['notification_email']
+                                )
                             except Exception as e:
                                 print(f"Warning: Failed to send success email: {e}")
                     else:
@@ -204,7 +250,8 @@ def main():
                                 notifier.send_booking_failure(
                                     class_info,
                                     "Failed to complete booking process.",
-                                    for_wife=for_wife
+                                    user_name=user_name,
+                                    user_email=user_creds['notification_email']
                                 )
                             except Exception as e:
                                 print(f"Warning: Failed to send failure email: {e}")
@@ -215,7 +262,8 @@ def main():
                             notifier.send_booking_failure(
                                 class_info,
                                 f"Class is full or not bookable. Spots left: {match.get('spots_left', 'Unknown')}",
-                                for_wife=for_wife
+                                user_name=user_name,
+                                user_email=user_creds['notification_email']
                             )
                         except Exception as e:
                             print(f"Warning: Failed to send failure email: {e}")
@@ -233,7 +281,8 @@ def main():
                     notifier.send_booking_failure(
                         class_info,
                         "Could not find the specified class in the schedule.",
-                        for_wife=class_config.get('for_wife', False)
+                        user_name=user_name,
+                        user_email=user_creds['notification_email']
                     )
                 except Exception as e:
                     print(f"Warning: Failed to send failure email: {e}")
@@ -241,4 +290,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

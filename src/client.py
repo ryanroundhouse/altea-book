@@ -256,13 +256,12 @@ class AlteaClient:
         
         return matches
     
-    def book_class(self, class_url: str, for_wife: bool = False):
+    def book_class(self, class_url: str):
         """
         Books a class by navigating to the class page and clicking the Book Now button.
         
         Args:
             class_url: The URL of the class (e.g., /booking/evt_xxx)
-            for_wife: Whether to book for wife (if applicable)
         
         Returns:
             True if booking was successful, False otherwise

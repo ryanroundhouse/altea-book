@@ -3,49 +3,87 @@
 #
 # BOOKING RULE: All classes open for booking 7 days and 1 hour before the class time.
 # Example: Monday 4:30 PM class opens for booking the previous Monday at 3:30 PM
+#
+# Each class entry requires:
+#   - day: Day of the week (Monday, Tuesday, etc.)
+#   - time: Class time in "HH:MM AM/PM" format
+#   - name: Class name (partial match supported)
+#   - user: User name from users.yaml (e.g., ryan, katie)
 
 classes:
   # Monday classes
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false  # Set to true to book for your wife
+    user: ryan  # Must match a user defined in users.yaml
   
+  - day: Monday
+    time: "9:30 AM"
+    name: "LF3 Strong"
+    user: katie
+
   # Tuesday classes
   # - day: Tuesday
   #   time: "4:30 PM"
   #   name: "LF3 Strong"
-  #   for_wife: false
+  #   user: ryan
   
   # Wednesday classes
   - day: Wednesday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
-  
+    user: ryan
+
+  - day: Wednesday
+    time: "9:30 AM"
+    name: "LF3 Strong"
+    user: katie
+
   # Thursday classes
   - day: Thursday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan
+
+  - day: Thursday
+    time: "9:30 AM"
+    name: "LF3 Strong"
+    user: katie
   
   # Friday classes
   - day: Friday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: 
+  
+  - day: Friday
+    time: "9:30 AM"
+    name: "Tread"
+    user: katie
   
   # Saturday classes
   - day: Saturday
     time: "10:30 AM"
     name: "Sweat Box"
-    for_wife: false
+    user: ryan
   
+  # Saturday classes
+  - day: Saturday
+    time: "10:31 AM"
+    name: "Sweat Box"
+    user: katie
+
   # Sunday classes
   # - day: Sunday
   #   time: "10:00 AM"
   #   name: "Sunday Stretch"
-  #   for_wife: false
+  #   user: ryan
+  
+  # Example: Book the same class for multiple users (stagger times by 1 min)
+  # - day: Monday
+  #   time: "4:31 PM"  # Staggered to avoid cron conflicts
+  #   name: "LF3 Strong"
+  #   user: katie
 
 # Global settings
 settings:

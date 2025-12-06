@@ -29,7 +29,30 @@ This will:
 - Install Playwright's Chromium browser
 - Create a `config.yaml` template
 
-### 2. Configure your credentials
+### 2. Configure your users
+
+Copy `users.example.yaml` to `users.yaml`:
+
+```bash
+cp users.example.yaml users.yaml
+```
+
+Edit `users.yaml` with your Altea credentials:
+
+```yaml
+users:
+  ryan:
+    altea_email: ryan@example.com
+    altea_password: your-password-here
+    notification_email: ryan@example.com
+  
+  katie:
+    altea_email: katie@example.com
+    altea_password: her-password-here
+    notification_email: katie@example.com
+```
+
+### 3. Configure email notifications (optional)
 
 Copy `env.example` to `.env`:
 
@@ -37,24 +60,17 @@ Copy `env.example` to `.env`:
 cp env.example .env
 ```
 
-Edit `.env` with your credentials:
+Edit `.env` with Mailgun credentials:
 
 ```bash
-# Altea Active Credentials (required)
-ALTEA_EMAIL=your-email@example.com
-ALTEA_PASSWORD=your-password-here
-
-# Mailgun Configuration (optional - for email notifications)
 MAILGUN_DOMAIN=your-mailgun-domain.mailgun.org
 MAILGUN_API_KEY=key-your-api-key-here
 FROM_EMAIL=altea-booking@your-domain.com
-TO_EMAIL=your-email@example.com
-WIFE_EMAIL=wife-email@example.com  # Optional
 ```
 
 **Note:** Email notifications are optional. If you don't configure Mailgun, the script will still work but won't send emails.
 
-### 3. Configure your weekly classes
+### 4. Configure your weekly classes
 
 Edit `classes.yaml` to define which classes you want each week:
 
@@ -63,17 +79,17 @@ classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan  # Must match a user in users.yaml
 ```
 
 **Booking Rule**: All classes automatically book 7 days and 1 hour before the class time. For example, a Monday 4:30 PM class will be booked on the previous Monday at 3:30 PM.
 
-### 4. Test the script
+### 5. Test the script
 
 Manual booking for a specific date:
 ```bash
 source venv/bin/activate
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
 ```
 
 Or test booking from your configuration:
@@ -139,10 +155,11 @@ crontab -l
 Book a specific class on a specific date:
 
 ```bash
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+# Book for ryan
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
 
-# Book for your wife
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --for-wife
+# Book for katie
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user katie
 ```
 
 ### Config-Based Booking
@@ -187,7 +204,7 @@ classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan
 ```
 
 The system automatically calculates that booking opens 7 days and 1 hour before (3:30 PM).
@@ -222,7 +239,8 @@ playwright install-deps chromium
 The bot sends email notifications for:
 - ✅ **Successful bookings** - Confirms class, date, time, and spots left
 - ❌ **Failed bookings** - Includes error details and troubleshooting info
-- 👥 **Wife bookings** - Sends to both you and your wife when booking for her
+
+Each user receives notifications at their configured `notification_email` in `users.yaml`.
 
 Email notifications use [Mailgun](https://www.mailgun.com/) API. You'll need:
 1. A Mailgun account (free tier available)
@@ -231,10 +249,10 @@ Email notifications use [Mailgun](https://www.mailgun.com/) API. You'll need:
 
 ## Security Notes
 
-- Never commit `.env` with real credentials
-- The `.gitignore` file excludes the `.env` file
-- All credentials are stored locally in `.env`
-- Use environment variables for all sensitive configuration
+- Never commit `.env` or `users.yaml` with real credentials
+- The `.gitignore` file excludes both `.env` and `users.yaml`
+- User credentials (Altea login) are stored in `users.yaml`
+- Mailgun API keys are stored in `.env`
 
 ## License
 

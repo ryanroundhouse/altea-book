@@ -17,13 +17,11 @@ class EmailNotifier:
         self.mailgun_domain = os.getenv('MAILGUN_DOMAIN')
         self.mailgun_api_key = os.getenv('MAILGUN_API_KEY')
         self.from_email = os.getenv('FROM_EMAIL')
-        self.to_email = os.getenv('TO_EMAIL')
-        self.wife_email = os.getenv('WIFE_EMAIL')
         
-        if not all([self.mailgun_domain, self.mailgun_api_key, self.from_email, self.to_email]):
+        if not all([self.mailgun_domain, self.mailgun_api_key, self.from_email]):
             raise ValueError(
                 "Missing required environment variables. "
-                "Please set MAILGUN_DOMAIN, MAILGUN_API_KEY, FROM_EMAIL, and TO_EMAIL in .env file."
+                "Please set MAILGUN_DOMAIN, MAILGUN_API_KEY, and FROM_EMAIL in .env file."
             )
     
     def send_email(self, to_emails: list, subject: str, html_content: str):
@@ -58,19 +56,17 @@ class EmailNotifier:
         else:
             raise Exception(f"Failed to send email: {response.status_code} - {response.text}")
     
-    def generate_success_email(self, class_info: dict, for_wife: bool = False) -> str:
+    def generate_success_email(self, class_info: dict, user_name: str) -> str:
         """
         Generate HTML for successful booking notification.
         
         Args:
             class_info: Dictionary with class details (title, time, date, url, spots_left)
-            for_wife: Whether this booking was for wife
+            user_name: Name of the user the booking was made for
             
         Returns:
             HTML email content
         """
-        recipient_name = "your wife" if for_wife else "you"
-        
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -169,7 +165,7 @@ class EmailNotifier:
         <div class="header">
             <div class="success-icon">✅</div>
             <h1 class="title">Booking Successful!</h1>
-            <p class="subtitle">Class booked for {recipient_name}</p>
+            <p class="subtitle">Class booked for {user_name.title()}</p>
         </div>
         
         <div class="class-card">
@@ -213,20 +209,18 @@ class EmailNotifier:
 """
         return html
     
-    def generate_failure_email(self, class_info: dict, error_message: str, for_wife: bool = False) -> str:
+    def generate_failure_email(self, class_info: dict, error_message: str, user_name: str) -> str:
         """
         Generate HTML for failed booking notification.
         
         Args:
             class_info: Dictionary with class details
             error_message: Description of what went wrong
-            for_wife: Whether this booking was for wife
+            user_name: Name of the user the booking was attempted for
             
         Returns:
             HTML email content
         """
-        recipient_name = "your wife" if for_wife else "you"
-        
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -342,7 +336,7 @@ class EmailNotifier:
         <div class="header">
             <div class="error-icon">❌</div>
             <h1 class="title">Booking Failed</h1>
-            <p class="subtitle">Could not book class for {recipient_name}</p>
+            <p class="subtitle">Could not book class for {user_name.title()}</p>
         </div>
         
         <div class="class-card">
@@ -383,21 +377,19 @@ class EmailNotifier:
 """
         return html
     
-    def send_booking_success(self, class_info: dict, for_wife: bool = False):
+    def send_booking_success(self, class_info: dict, user_name: str, user_email: str):
         """
         Send success notification email.
         
         Args:
             class_info: Dictionary with class details
-            for_wife: Whether this booking was for wife
+            user_name: Name of the user
+            user_email: Email address of the user to notify
         """
-        html = self.generate_success_email(class_info, for_wife)
+        html = self.generate_success_email(class_info, user_name)
         subject = f"✅ Booking Confirmed: {class_info.get('title', 'Class')} on {class_info.get('date', '')}"
         
-        # Determine recipients
-        recipients = [self.to_email]
-        if for_wife and self.wife_email:
-            recipients.append(self.wife_email)
+        recipients = [user_email]
         
         print(f"\n📧 Sending success notification to: {', '.join(recipients)}")
         
@@ -409,22 +401,20 @@ class EmailNotifier:
             print(f"✗ Failed to send email: {e}")
             raise
     
-    def send_booking_failure(self, class_info: dict, error_message: str, for_wife: bool = False):
+    def send_booking_failure(self, class_info: dict, error_message: str, user_name: str, user_email: str):
         """
         Send failure notification email.
         
         Args:
             class_info: Dictionary with class details
             error_message: Description of what went wrong
-            for_wife: Whether this booking was for wife
+            user_name: Name of the user
+            user_email: Email address of the user to notify
         """
-        html = self.generate_failure_email(class_info, error_message, for_wife)
+        html = self.generate_failure_email(class_info, error_message, user_name)
         subject = f"❌ Booking Failed: {class_info.get('title', 'Class')} on {class_info.get('date', '')}"
         
-        # Determine recipients
-        recipients = [self.to_email]
-        if for_wife and self.wife_email:
-            recipients.append(self.wife_email)
+        recipients = [user_email]
         
         print(f"\n📧 Sending failure notification to: {', '.join(recipients)}")
         
@@ -435,4 +425,3 @@ class EmailNotifier:
         except Exception as e:
             print(f"✗ Failed to send email: {e}")
             raise
-

@@ -8,14 +8,23 @@ Get your automatic fitness class booking up and running in 5 minutes.
 # Run the setup script
 ./setup.sh
 
-# Edit your credentials
-nano .env
+# Set up your user credentials
+cp users.example.yaml users.yaml
+nano users.yaml
 ```
 
-Add your Altea credentials to `.env`:
-```
-ALTEA_EMAIL=your-email@example.com
-ALTEA_PASSWORD=your-password-here
+Add your Altea credentials to `users.yaml`:
+```yaml
+users:
+  ryan:
+    altea_email: ryan@example.com
+    altea_password: your-password-here
+    notification_email: ryan@example.com
+  
+  katie:  # Add more users as needed
+    altea_email: katie@example.com
+    altea_password: her-password-here
+    notification_email: katie@example.com
 ```
 
 ## 2. Configure Your Classes
@@ -33,13 +42,13 @@ classes:
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan  # Must match a user in users.yaml
 ```
 
 This means:
-- **Class**: "LF3 Strong" on Mondays at 4:30 PM
+- **Class**: "LF3 Strong" on Mondays at 4:30 PM for ryan
 - **Booking**: Automatically opens 7 days and 1 hour before (3:30 PM)
-- **Result**: System will book automatically every Monday at 3:30 PM for the following Monday
+- **Result**: System will book automatically every Monday at 3:30 PM for the following Monday, using ryan's credentials
 
 ## 3. Test Your Configuration
 
@@ -76,7 +85,7 @@ tail -f logs/booking_monday.log
 
 ### Manual booking (bypass config)
 ```bash
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
 ```
 
 ### Update your schedule
@@ -125,26 +134,37 @@ grep CRON /var/log/syslog
 
 ```yaml
 classes:
-  # Monday morning (books at 5:00 AM, 7 days before)
+  # Monday morning for ryan (books at 5:01 AM, 7 days before)
   - day: Monday
     time: "6:00 AM"
     name: "Hot Vinyasa"
-    for_wife: false
+    user: ryan
   
-  # Monday afternoon (books at 3:30 PM, 7 days before)
+  # Monday afternoon for ryan (books at 3:31 PM, 7 days before)
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    for_wife: false
+    user: ryan
   
-  # Wednesday for wife (books at 11:30 AM, 7 days before)
+  # Wednesday for katie (books at 11:31 AM, 7 days before)
   - day: Wednesday
     time: "12:30 PM"
     name: "Pilates"
-    for_wife: true
+    user: katie
+  
+  # Same class for both users (stagger times to avoid conflicts)
+  - day: Friday
+    time: "4:30 PM"
+    name: "LF3 Strong"
+    user: ryan
+  
+  - day: Friday
+    time: "4:31 PM"  # Staggered by 1 minute
+    name: "LF3 Strong"
+    user: katie
 ```
 
-**Note**: All classes automatically book 7 days and 1 hour before the class time.
+**Note**: All classes automatically book 7 days and 1 hour before the class time. Each user's credentials from `users.yaml` are used for their bookings.
 
 After editing, run:
 ```bash

@@ -3,6 +3,8 @@ import os
 import argparse
 import warnings
 from datetime import datetime
+from pathlib import Path
+import yaml
 from dotenv import load_dotenv
 from src.client import AlteaClient
 from src.notifications import EmailNotifier
@@ -13,25 +15,79 @@ warnings.filterwarnings('ignore', message='.*OpenSSL.*')
 # Load environment variables from .env file
 load_dotenv()
 
+# Project root for loading users.yaml
+project_root = Path(__file__).parent
+
+
+def load_users(users_path='users.yaml'):
+    """Load the users configuration file."""
+    users_file = project_root / users_path
+    
+    if not users_file.exists():
+        print(f"Error: Users configuration file not found: {users_file}")
+        print("Copy users.example.yaml to users.yaml and configure your credentials.")
+        sys.exit(1)
+    
+    with open(users_file, 'r') as f:
+        users_config = yaml.safe_load(f)
+    
+    return users_config.get('users', {})
+
+
+def get_user_credentials(users, user_name):
+    """
+    Get credentials for a specific user.
+    
+    Args:
+        users: Dictionary of users from users.yaml
+        user_name: Name of the user to look up
+    
+    Returns:
+        Dictionary with altea_email, altea_password, notification_email
+    """
+    if user_name not in users:
+        print(f"Error: User '{user_name}' not found in users.yaml")
+        print(f"Available users: {', '.join(users.keys())}")
+        sys.exit(1)
+    
+    user = users[user_name]
+    
+    required_fields = ['altea_email', 'altea_password', 'notification_email']
+    for field in required_fields:
+        if field not in user or not user[field]:
+            print(f"Error: Missing '{field}' for user '{user_name}' in users.yaml")
+            sys.exit(1)
+    
+    return user
+
+
 def parse_arguments():
     """Parse and validate command line arguments."""
+    # Load users to show available options
+    try:
+        users = load_users()
+        available_users = list(users.keys())
+    except SystemExit:
+        available_users = ['(users.yaml not found)']
+    
     parser = argparse.ArgumentParser(
         description='Altea Active Gym Class Booking Bot',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
+        epilog=f'''
 Examples:
-  # Book LF3 Strong class at 8:30 AM on November 29, 2025
-  python main.py "29-11-2025" "8:30 AM" "LF3 Strong"
+  # Book LF3 Strong class at 8:30 AM on November 29, 2025 for ryan
+  python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
   
-  # Book Hot Vinyasa at 7:30 AM on December 1, 2025
-  python main.py "01-12-2025" "7:30 AM" "Hot Vinyasa"
+  # Book Hot Vinyasa at 7:30 AM on December 1, 2025 for katie
+  python main.py "01-12-2025" "7:30 AM" "Hot Vinyasa" --user katie
   
   # Book any class with partial name match
-  python main.py "15-12-2025" "12:30 PM" "Pilates"
+  python main.py "15-12-2025" "12:30 PM" "Pilates" --user ryan
 
 Date Format: DD-MM-YYYY (e.g., 29-11-2025)
 Time Format: HH:MM AM/PM (e.g., 8:30 AM, 12:30 PM)
 Class Name: Partial match, case-insensitive (e.g., "LF3", "Strong", "Vinyasa")
+Available Users: {", ".join(available_users)}
         '''
     )
     
@@ -41,9 +97,9 @@ Class Name: Partial match, case-insensitive (e.g., "LF3", "Strong", "Vinyasa")
                        help='Time of the class (format: HH:MM AM/PM)')
     parser.add_argument('class_name', 
                        help='Name of the class (partial match)')
-    parser.add_argument('--for-wife', 
-                       action='store_true',
-                       help='Book for wife instead of yourself')
+    parser.add_argument('--user', 
+                       required=True,
+                       help='User to book for (must be defined in users.yaml)')
     parser.add_argument('--headless',
                        action='store_true',
                        default=False,
@@ -68,14 +124,9 @@ def main():
     # Parse command line arguments
     args = parse_arguments()
     
-    # Load credentials from environment variables
-    email = os.getenv('ALTEA_EMAIL')
-    password = os.getenv('ALTEA_PASSWORD')
-    
-    if not email or not password:
-        print("Error: ALTEA_EMAIL and ALTEA_PASSWORD must be set in .env file")
-        print("Copy env.example to .env and configure your credentials.")
-        sys.exit(1)
+    # Load users and get credentials
+    users = load_users()
+    user_creds = get_user_credentials(users, args.user)
 
     # Initialize email notifier
     try:
@@ -92,11 +143,11 @@ def main():
     print(f"Date: {args.date}")
     print(f"Time: {args.time}")
     print(f"Class: {args.class_name}")
-    print(f"Booking for: {'Wife' if args.for_wife else 'You'}")
+    print(f"User: {args.user}")
     print(f"{'='*70}\n")
     
     # Use context manager to automatically handle browser lifecycle
-    with AlteaClient(email, password, headless=args.headless) as client:
+    with AlteaClient(user_creds['altea_email'], user_creds['altea_password'], headless=args.headless) as client:
         # Step 1: Login
         if not client.login():
             print("Login failed, exiting.")
@@ -143,7 +194,11 @@ def main():
                         # Send success notification
                         if notifier:
                             try:
-                                notifier.send_booking_success(class_info, for_wife=args.for_wife)
+                                notifier.send_booking_success(
+                                    class_info,
+                                    user_name=args.user,
+                                    user_email=user_creds['notification_email']
+                                )
                             except Exception as e:
                                 print(f"Warning: Failed to send success email: {e}")
                     else:
@@ -155,7 +210,8 @@ def main():
                                 notifier.send_booking_failure(
                                     class_info, 
                                     "Failed to complete booking process. The booking button may not have been found or clicked.",
-                                    for_wife=args.for_wife
+                                    user_name=args.user,
+                                    user_email=user_creds['notification_email']
                                 )
                             except Exception as e:
                                 print(f"Warning: Failed to send failure email: {e}")
@@ -168,7 +224,8 @@ def main():
                             notifier.send_booking_failure(
                                 class_info,
                                 f"Class is full or not bookable. Spots left: {match.get('spots_left', 'Unknown')}",
-                                for_wife=args.for_wife
+                                user_name=args.user,
+                                user_email=user_creds['notification_email']
                             )
                         except Exception as e:
                             print(f"Warning: Failed to send failure email: {e}")
@@ -194,11 +251,11 @@ def main():
                     notifier.send_booking_failure(
                         class_info,
                         "Could not find the specified class in the schedule. It may not be available on this date.",
-                        for_wife=args.for_wife
+                        user_name=args.user,
+                        user_email=user_creds['notification_email']
                     )
                 except Exception as e:
                     print(f"Warning: Failed to send failure email: {e}")
 
 if __name__ == "__main__":
     main()
-
