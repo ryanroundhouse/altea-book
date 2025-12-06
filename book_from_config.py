@@ -84,13 +84,15 @@ def get_day_name(date_obj):
     return date_obj.strftime('%A')
 
 
-def find_class_for_date(config, target_date):
+def find_class_for_date(config, target_date, time_filter=None, user_filter=None):
     """
     Find the class configuration for a given date.
     
     Args:
         config: The loaded YAML configuration
         target_date: datetime object for the target date
+        time_filter: Optional time string to match (e.g., "4:30 PM")
+        user_filter: Optional user name to match
     
     Returns:
         Class configuration dict or None if not found
@@ -98,8 +100,18 @@ def find_class_for_date(config, target_date):
     day_name = get_day_name(target_date)
     
     for class_config in config.get('classes', []):
-        if class_config['day'] == day_name:
-            return class_config
+        if class_config['day'] != day_name:
+            continue
+        
+        # If time filter specified, must match
+        if time_filter and class_config.get('time') != time_filter:
+            continue
+        
+        # If user filter specified, must match
+        if user_filter and class_config.get('user') != user_filter:
+            continue
+        
+        return class_config
     
     return None
 
@@ -124,6 +136,10 @@ Examples:
     
     parser.add_argument('--date',
                        help='Target date for the class (format: YYYY-MM-DD). Defaults to today.')
+    parser.add_argument('--time',
+                       help='Class time to book (e.g., "4:30 PM"). Required when multiple classes on same day.')
+    parser.add_argument('--user',
+                       help='User to book for (must match user in classes.yaml and users.yaml)')
     parser.add_argument('--config',
                        default='classes.yaml',
                        help='Path to the configuration file (default: classes.yaml)')
@@ -150,12 +166,18 @@ def main():
     # Load configuration
     config = load_config(args.config)
     
-    # Find class for this date
-    class_config = find_class_for_date(config, target_date)
+    # Find class for this date (with optional time/user filters from cron)
+    class_config = find_class_for_date(config, target_date, args.time, args.user)
     
     if not class_config:
         day_name = get_day_name(target_date)
-        print(f"No class configured for {day_name} ({target_date.strftime('%Y-%m-%d')})")
+        filters = []
+        if args.time:
+            filters.append(f"time={args.time}")
+        if args.user:
+            filters.append(f"user={args.user}")
+        filter_str = f" ({', '.join(filters)})" if filters else ""
+        print(f"No class configured for {day_name} ({target_date.strftime('%Y-%m-%d')}){filter_str}")
         sys.exit(0)
     
     # Get user from class config

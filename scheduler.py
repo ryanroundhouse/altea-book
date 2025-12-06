@@ -144,12 +144,15 @@ def generate_cron_entry(class_config, project_root, python_path, is_macos=True):
         # Linux: date -d "+7 days" +%Y-%m-%d
         date_cmd = f'$(date -d "+{days_before} days" +\\%Y-\\%m-\\%d)'
     
-    # Build the cron command
-    # Format: minute hour * * day-of-week command
-    cron_cmd = f'cd {project_root} && {python_path} {script_path} --date {date_cmd}'
+    # Get user for this class
+    user = class_config.get('user', 'unknown')
     
-    # Add log redirection
-    log_file = project_root / 'logs' / f'booking_{class_config["day"].lower()}.log'
+    # Build the cron command with --time and --user to identify exact class entry
+    # Format: minute hour * * day-of-week command
+    cron_cmd = f'cd {project_root} && {python_path} {script_path} --date {date_cmd} --time "{class_time}" --user {user}'
+    
+    # Add log redirection (include user in log filename for clarity)
+    log_file = project_root / 'logs' / f'booking_{class_config["day"].lower()}_{user}.log'
     cron_cmd += f' >> {log_file} 2>&1'
     
     cron_line = f'{minute} {hour} * * {cron_day} {cron_cmd}'
@@ -185,7 +188,8 @@ def generate_crontab(config, project_root, python_path, is_macos=True):
         booking_time_24h = f"{booking_hour:02d}:{booking_minute:02d}"
         
         # Add comment for readability
-        lines.append(f'# {cls["day"]} {cls["time"]} - {cls["name"]}')
+        user = cls.get('user', 'unknown')
+        lines.append(f'# {cls["day"]} {cls["time"]} - {cls["name"]} (user: {user})')
         lines.append(f'# Books 7 days in advance, 59 minutes before class (at {booking_time_24h})')
         lines.append(cron_line)
         lines.append('')
