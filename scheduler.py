@@ -129,6 +129,16 @@ def generate_cron_entry(class_config, project_root, python_path, is_macos=True):
     class_time = class_config['time']
     hour, minute = calculate_booking_time(class_time)
     
+    # Apply optional cron offset (to stagger multiple bookings for same class)
+    cron_offset = class_config.get('cron_offset_minutes', 0)
+    if cron_offset:
+        total_minutes = hour * 60 + minute + cron_offset
+        hour = total_minutes // 60
+        minute = total_minutes % 60
+        # Handle day overflow (shouldn't happen in practice)
+        if hour >= 24:
+            hour = hour % 24
+    
     # Calculate which day the cron should run (7 days before = same day of week)
     cron_day = calculate_cron_day(class_config['day'], days_before)
     
@@ -189,7 +199,9 @@ def generate_crontab(config, project_root, python_path, is_macos=True):
         
         # Add comment for readability
         user = cls.get('user', 'unknown')
-        lines.append(f'# {cls["day"]} {cls["time"]} - {cls["name"]} (user: {user})')
+        cron_offset = cls.get('cron_offset_minutes', 0)
+        offset_str = f", +{cron_offset}min offset" if cron_offset else ""
+        lines.append(f'# {cls["day"]} {cls["time"]} - {cls["name"]} (user: {user}{offset_str})')
         lines.append(f'# Books 7 days in advance, 59 minutes before class (at {booking_time_24h})')
         lines.append(cron_line)
         lines.append('')

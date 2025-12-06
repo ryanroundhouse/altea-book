@@ -9,25 +9,22 @@
 #   - time: Class time in "HH:MM AM/PM" format
 #   - name: Class name (partial match supported)
 #   - user: User name from users.yaml (e.g., ryan, katie)
+#
+# Optional:
+#   - cron_offset_minutes: Delay the cron job by N minutes (to stagger bookings)
 
 classes:
   # Monday classes
   - day: Monday
     time: "4:30 PM"
     name: "LF3 Strong"
-    user: ryan  # Must match a user defined in users.yaml
-  
+    user: ryan
+
   - day: Monday
     time: "9:30 AM"
     name: "LF3 Strong"
     user: katie
 
-  # Tuesday classes
-  # - day: Tuesday
-  #   time: "4:30 PM"
-  #   name: "LF3 Strong"
-  #   user: ryan
-  
   # Wednesday classes
   - day: Wednesday
     time: "4:30 PM"
@@ -49,44 +46,31 @@ classes:
     time: "9:30 AM"
     name: "LF3 Strong"
     user: katie
-  
+
   # Friday classes
   - day: Friday
     time: "4:30 PM"
     name: "LF3 Strong"
-    user: 
-  
+    user: ryan
+
   - day: Friday
     time: "9:30 AM"
     name: "Tread"
     user: katie
-  
-  # Saturday classes
+
+  # Saturday classes - same class, staggered cron jobs
   - day: Saturday
     time: "10:30 AM"
     name: "Sweat Box"
     user: ryan
-  
-  # Saturday classes
+
   - day: Saturday
-    time: "10:31 AM"
+    time: "10:30 AM"
     name: "Sweat Box"
     user: katie
-
-  # Sunday classes
-  # - day: Sunday
-  #   time: "10:00 AM"
-  #   name: "Sunday Stretch"
-  #   user: ryan
-  
-  # Example: Book the same class for multiple users (stagger times by 1 min)
-  # - day: Monday
-  #   time: "4:31 PM"  # Staggered to avoid cron conflicts
-  #   name: "LF3 Strong"
-  #   user: katie
+    cron_offset_minutes: 1  # Runs 1 minute after ryan's booking
 
 # Global settings
 settings:
   headless: true  # Run browser in headless mode for cron jobs
   timezone: "America/Toronto"  # Your local timezone
-
