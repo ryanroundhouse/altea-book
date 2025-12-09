@@ -8,6 +8,10 @@
 #   - altea_email: Email address for Altea Active login
 #   - altea_password: Password for Altea Active login  
 #   - notification_email: Email address to receive booking notifications
+#
+# Optional:
+#   - calendar_webhook_url: Google Apps Script URL for calendar integration
+#     (See CALENDAR_SETUP.md for setup instructions)
 
 users:
   # Example user - replace with your own
@@ -15,15 +19,19 @@ users:
     altea_email: ryan@example.com
     altea_password: your-password-here
     notification_email: ryan@example.com
+    # Optional: Add booked classes to Google Calendar
+    # calendar_webhook_url: https://script.google.com/macros/s/your-script-id/exec
   
   katie:
     altea_email: katie@example.com
     altea_password: your-password-here
     notification_email: katie@example.com
+    # calendar_webhook_url: https://script.google.com/macros/s/your-script-id/exec
   
   # Add more users as needed:
   # marcus:
   #   altea_email: marcus@example.com
   #   altea_password: your-password-here
   #   notification_email: marcus@example.com
+  #   calendar_webhook_url: https://script.google.com/macros/s/your-script-id/exec
 

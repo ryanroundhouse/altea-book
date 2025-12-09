@@ -8,6 +8,7 @@ import yaml
 from dotenv import load_dotenv
 from src.client import AlteaClient
 from src.notifications import EmailNotifier
+from src.calendar import add_to_calendar
 
 # Suppress urllib3 OpenSSL warning on macOS
 warnings.filterwarnings('ignore', message='.*OpenSSL.*')
@@ -190,6 +191,16 @@ def main():
                     success = client.book_class(match['url'])
                     if success:
                         print("\n✓ Successfully initiated booking!")
+                        
+                        # Add to Google Calendar if webhook URL is configured
+                        calendar_url = user_creds.get('calendar_webhook_url')
+                        if calendar_url:
+                            add_to_calendar(
+                                webhook_url=calendar_url,
+                                class_title=match['title'],
+                                class_date=args.date,
+                                class_time=match.get('time', args.time)
+                            )
                         
                         # Send success notification
                         if notifier:

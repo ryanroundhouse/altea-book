@@ -18,6 +18,7 @@ sys.path.insert(0, str(project_root))
 
 from src.client import AlteaClient
 from src.notifications import EmailNotifier
+from src.calendar import add_to_calendar
 
 # Load environment variables
 load_dotenv()
@@ -256,6 +257,17 @@ def main():
                     success = client.book_class(match['url'])
                     if success:
                         print("\n✓ Successfully booked class!")
+                        
+                        # Add to Google Calendar if webhook URL is configured
+                        calendar_url = user_creds.get('calendar_webhook_url')
+                        if calendar_url:
+                            add_to_calendar(
+                                webhook_url=calendar_url,
+                                class_title=match['title'],
+                                class_date=formatted_date,
+                                class_time=match.get('time', class_config['time'])
+                            )
+                        
                         if notifier:
                             try:
                                 notifier.send_booking_success(
