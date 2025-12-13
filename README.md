@@ -388,10 +388,6 @@ In Apps Script:
 - Never commit real `users.yaml` or `.env`.
 - Treat `calendar_webhook_url` like a password (anyone with it can create events).
 
-## Design notes
-
-See `design.md` for deeper implementation details.
-
 ## License
 
 For personal use only.
