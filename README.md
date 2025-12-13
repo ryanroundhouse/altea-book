@@ -1,43 +1,38 @@
 # Altea Gym Booking Bot
 
-Automated booking script for Altea Active classes using browser automation.
-
-> **Quick Start**: New to this? See [QUICK_START.md](QUICK_START.md) for a 5-minute setup guide.
->
-> **Scheduling Guide**: Learn how to set up automatic weekly bookings in [SCHEDULING_GUIDE.md](SCHEDULING_GUIDE.md).
+Automated booking script for Altea Active classes using browser automation (Playwright). Configure your weekly schedule in YAML, optionally add email notifications, and install cron jobs to auto-book at the booking window open time.
 
 ## Features
 
-- 🤖 Automated login and booking via headless browser
-- 📅 Weekly schedule-based booking with automatic cron setup
-- 🔒 Secure credential management via config file
-- 🐧 Linux server compatible (headless Chromium)
-- 📧 Email notifications via Mailgun (success/failure alerts)
-- ⚙️ YAML configuration for recurring weekly classes
+- **Automated booking**: Headless browser login + class booking.
+- **Weekly scheduling**: Define recurring classes in `classes.yaml`; install cron jobs with `scheduler.py`.
+- **Multi-user**: Book for multiple users with separate credentials in `users.yaml`.
+- **Notifications (optional)**: Mailgun success/failure emails.
+- **Calendar events (optional)**: Send booked-class details to a Google Apps Script webhook to create calendar events.
+- **Cross-platform**: macOS + Linux supported (headless Chromium).
 
-## Quick Setup
+## Quick start
 
-### 1. Run the setup script
+### Prerequisites
+
+- **Python**: Use the version your environment supports (this repo includes a local `venv/` in some setups).
+- **Playwright browser**: Chromium is required for automation.
+
+### 1) Run the setup script
 
 ```bash
 ./setup.sh
 ```
 
-This will:
-- Create a Python virtual environment
-- Install all dependencies
-- Install Playwright's Chromium browser
-- Create a `config.yaml` template
+If `./setup.sh` fails, see **Manual setup** below.
 
-### 2. Configure your users
-
-Copy `users.example.yaml` to `users.yaml`:
+### 2) Configure users (`users.yaml`)
 
 ```bash
 cp users.example.yaml users.yaml
 ```
 
-Edit `users.yaml` with your Altea credentials:
+Example:
 
 ```yaml
 users:
@@ -45,22 +40,298 @@ users:
     altea_email: ryan@example.com
     altea_password: your-password-here
     notification_email: ryan@example.com
-  
+
   katie:
     altea_email: katie@example.com
     altea_password: her-password-here
     notification_email: katie@example.com
 ```
 
-### 3. Configure email notifications (optional)
+### 3) Configure classes (`classes.yaml`)
 
-Copy `env.example` to `.env`:
+Example:
+
+```yaml
+classes:
+  - day: Monday
+    time: "4:30 PM"
+    name: "LF3 Strong" # partial match works
+    user: ryan         # must match a user in users.yaml
+```
+
+### 4) Dry-run the schedule and booking
+
+```bash
+source venv/bin/activate
+
+# Preview cron jobs that would be created
+python scheduler.py --dry-run
+
+# Test booking logic for a given date (no booking)
+python book_from_config.py --date 2025-12-02 --dry-run
+```
+
+### 5) Install automatic scheduling (cron)
+
+```bash
+python scheduler.py --install
+```
+
+## Manual setup (if `setup.sh` doesn’t work)
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+playwright install chromium
+
+# Linux only:
+playwright install-deps chromium
+```
+
+## Configuration reference
+
+### `users.yaml`
+
+Fields:
+- **`altea_email`**: Altea login email
+- **`altea_password`**: Altea login password
+- **`notification_email`**: Where to send email notifications (if configured)
+- **`calendar_webhook_url`** (optional): Google Apps Script web app URL to create calendar events
+
+Example:
+
+```yaml
+users:
+  ryan:
+    altea_email: ryan@example.com
+    altea_password: your-password
+    notification_email: ryan@example.com
+    calendar_webhook_url: https://script.google.com/macros/s/AKfycb...xyz/exec
+```
+
+### `classes.yaml`
+
+Each entry:
+
+```yaml
+- day: Monday              # Day of week for the class
+  time: "4:30 PM"          # Local time (12-hour format)
+  name: "LF3 Strong"       # Class name (partial match works)
+  user: ryan               # User key from users.yaml
+```
+
+## Booking rule (important)
+
+All classes are booked **7 days and 1 hour before** the class time.
+
+Example:
+- **Class**: Monday 4:30 PM
+- **Booking opens**: previous Monday 3:30 PM
+- **Cron job runs**: Monday 3:30 PM and books the class for 7 days from then
+
+## Scheduler usage (cron)
+
+### Preview what will be scheduled
+
+```bash
+python scheduler.py --dry-run
+```
+
+### Install cron jobs
+
+```bash
+python scheduler.py --install
+```
+
+### Remove cron jobs (only those created by this tool)
+
+```bash
+python scheduler.py --remove
+```
+
+### Inspect installed jobs
+
+```bash
+crontab -l
+```
+
+### Cron timing primer
+
+Cron format: `minute hour day month day-of-week command`
+
+Day-of-week numbers:
+- `0` = Sunday
+- `1` = Monday
+- `2` = Tuesday
+- `3` = Wednesday
+- `4` = Thursday
+- `5` = Friday
+- `6` = Saturday
+
+## Common commands
+
+### Manual booking (bypass config)
+
+```bash
+source venv/bin/activate
+python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
+```
+
+### Config-based booking (used by cron)
+
+```bash
+source venv/bin/activate
+python book_from_config.py --date 2025-12-02
+```
+
+### Logs
+
+All booking output is written to `logs/` (one file per day), for example:
+
+```bash
+tail -f logs/booking_monday.log
+```
+
+## Google Calendar integration (optional)
+
+When a booking succeeds, the system can POST booking details to a per-user `calendar_webhook_url` (Google Apps Script Web App). This avoids Google Cloud OAuth setup.
+
+### 1) Create a Google Apps Script web app
+
+- Go to [script.google.com](https://script.google.com)
+- Create a new project (e.g., “Altea Calendar Integration”)
+- Replace the default code with the script below
+
+```javascript
+/**
+ * Altea Calendar Integration
+ *
+ * This script receives booking data from the Altea auto-booker
+ * and creates calendar events in your Google Calendar.
+ */
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    const title = data.title || 'Fitness Class';
+    const startTime = new Date(data.startTime);
+    const endTime = new Date(data.endTime);
+    const description = data.description || '';
+    const location = data.location || 'Altea Active';
+
+    const calendar = CalendarApp.getDefaultCalendar();
+    const event = calendar.createEvent(title, startTime, endTime, {
+      description: description,
+      location: location
+    });
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        eventId: event.getId(),
+        message: 'Event created successfully'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Run manually once to authorize calendar permissions
+function testCalendarAccess() {
+  const calendar = CalendarApp.getDefaultCalendar();
+  Logger.log('Calendar name: ' + calendar.getName());
+  Logger.log('Calendar access verified!');
+}
+```
+
+### 2) Deploy as a web app
+
+- **Deploy** → **New deployment** → type: **Web app**
+- **Execute as**: Me
+- **Who has access**: Anyone
+- Authorize access when prompted
+- Copy the Web App URL (looks like `https://script.google.com/macros/s/.../exec`)
+
+### 3) Add `calendar_webhook_url` to `users.yaml`
+
+```yaml
+users:
+  ryan:
+    altea_email: ryan@example.com
+    altea_password: your-password
+    notification_email: ryan@example.com
+    calendar_webhook_url: https://script.google.com/macros/s/AKfycb...xyz/exec
+```
+
+### 4) Test the webhook
+
+```bash
+curl -X POST "YOUR_WEBHOOK_URL" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Test Class",
+    "startTime": "2025-12-15T10:00:00",
+    "endTime": "2025-12-15T11:00:00",
+    "description": "Test event from Altea booker",
+    "location": "Altea Active"
+  }'
+```
+
+## Architecture (how it works)
+
+```
+┌─────────────────┐
+│  classes.yaml   │  ← weekly schedule
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  scheduler.py   │  ← generates/installs cron jobs
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    crontab      │  ← triggers at booking window open time
+└────────┬────────┘
+         │
+         ▼
+┌──────────────────────┐
+│ book_from_config.py  │  ← chooses class + user for target date
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│      main.py         │  ← core booking via AlteaClient (Playwright)
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│   Altea website      │  ← books the class
+└──────────────────────┘
+```
+
+## Notifications (optional)
+
+Email notifications are sent on booking success/failure using Mailgun.
+
+1) Copy `env.example` to `.env`:
 
 ```bash
 cp env.example .env
 ```
 
-Edit `.env` with Mailgun credentials:
+2) Fill in:
 
 ```bash
 MAILGUN_DOMAIN=your-mailgun-domain.mailgun.org
@@ -68,191 +339,58 @@ MAILGUN_API_KEY=key-your-api-key-here
 FROM_EMAIL=altea-booking@your-domain.com
 ```
 
-**Note:** Email notifications are optional. If you don't configure Mailgun, the script will still work but won't send emails.
-
-### 4. Configure your weekly classes
-
-Edit `classes.yaml` to define which classes you want each week:
-
-```yaml
-classes:
-  - day: Monday
-    time: "4:30 PM"
-    name: "LF3 Strong"
-    user: ryan  # Must match a user in users.yaml
-```
-
-**Booking Rule**: All classes automatically book 7 days and 1 hour before the class time. For example, a Monday 4:30 PM class will be booked on the previous Monday at 3:30 PM.
-
-### 5. Test the script
-
-Manual booking for a specific date:
-```bash
-source venv/bin/activate
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
-```
-
-Or test booking from your configuration:
-```bash
-python book_from_config.py --date 2025-12-02 --dry-run
-```
-
-## Manual Setup (if setup.sh doesn't work)
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install Playwright browser
-playwright install chromium
-
-# On Linux, also install system dependencies
-playwright install-deps chromium  # Linux only
-```
-
-## Automatic Scheduling with Cron
-
-The scheduler automatically sets up cron jobs based on your `classes.yaml` configuration.
-
-### View what would be scheduled:
-
-```bash
-python scheduler.py --dry-run
-```
-
-### Install the cron jobs:
-
-```bash
-python scheduler.py --install
-```
-
-This will:
-- Read your `classes.yaml` configuration
-- Calculate when each booking window opens
-- Install cron jobs to automatically book classes at the right time
-- Create logs in the `logs/` directory
-
-### Remove installed cron jobs:
-
-```bash
-python scheduler.py --remove
-```
-
-### View your scheduled jobs:
-
-```bash
-crontab -l
-```
-
-## Usage Examples
-
-### Manual Booking
-
-Book a specific class on a specific date:
-
-```bash
-# Book for ryan
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user ryan
-
-# Book for katie
-python main.py "29-11-2025" "8:30 AM" "LF3 Strong" --user katie
-```
-
-### Config-Based Booking
-
-Book based on your weekly schedule configuration:
-
-```bash
-# Book class for next Monday (based on classes.yaml)
-python book_from_config.py --date 2025-12-02
-
-# Dry run to see what would be booked
-python book_from_config.py --date 2025-12-02 --dry-run
-```
-
-## How It Works
-
-### The Complete Workflow
-
-1. **Configure your weekly schedule** (`classes.yaml`):
-   - Define which classes you want on which days
-   - Booking windows are automatically calculated (7 days and 1 hour before)
-
-2. **Set up automatic scheduling** (`scheduler.py`):
-   - Reads your configuration
-   - Calculates booking times (class time minus 1 hour, 7 days before)
-   - Installs cron jobs that trigger at booking window openings
-
-3. **Automatic booking** (`book_from_config.py`):
-   - Triggered by cron at the right time
-   - Reads the configuration to know what to book
-   - Calculates the target date (e.g., 7 days from now)
-   - Books the class automatically
-   - Sends email notifications
-
-### Example
-
-You want to book "LF3 Strong" every Monday at 4:30 PM. Booking opens the previous Monday at 3:30 PM.
-
-**Step 1:** Add to `classes.yaml`:
-```yaml
-classes:
-  - day: Monday
-    time: "4:30 PM"
-    name: "LF3 Strong"
-    user: ryan
-```
-
-The system automatically calculates that booking opens 7 days and 1 hour before (3:30 PM).
-
-**Step 2:** Install the scheduler:
-```bash
-python scheduler.py --install
-```
-
-**Result:** Every Monday at 3:30 PM, the system will automatically book "LF3 Strong" for the following Monday at 4:30 PM.
-
-## Design
-
-See [design.md](design.md) for architectural details.
+If Mailgun isn’t configured, booking still runs; you just won’t get emails.
 
 ## Troubleshooting
 
-### "Browser executable not found"
-Run: `playwright install chromium`
+### Browser executable not found
 
-### "Permission denied: ./setup.sh"
-Run: `chmod +x setup.sh`
-
-### Script fails on Linux server
-Make sure system dependencies are installed:
 ```bash
-playwright install-deps chromium
+source venv/bin/activate
+playwright install chromium
 ```
 
-## Email Notifications
+### Permission denied: `./setup.sh`
 
-The bot sends email notifications for:
-- ✅ **Successful bookings** - Confirms class, date, time, and spots left
-- ❌ **Failed bookings** - Includes error details and troubleshooting info
+```bash
+chmod +x setup.sh
+```
 
-Each user receives notifications at their configured `notification_email` in `users.yaml`.
+### Cron jobs not running
 
-Email notifications use [Mailgun](https://www.mailgun.com/) API. You'll need:
-1. A Mailgun account (free tier available)
-2. A verified domain or use Mailgun's sandbox domain
-3. Your API key from the Mailgun dashboard
+- Verify cron is running:
+  - macOS: `ps aux | grep cron`
+  - Linux: `service cron status`
+- Check your crontab: `crontab -l`
+- View recent cron activity:
+  - macOS: `log show --predicate 'eventMessage contains "cron"' --last 1h`
+  - Linux: `grep CRON /var/log/syslog`
 
-## Security Notes
+### “No classes configured for [day]”
 
-- Never commit `.env` or `users.yaml` with real credentials
-- The `.gitignore` file excludes both `.env` and `users.yaml`
-- User credentials (Altea login) are stored in `users.yaml`
-- Mailgun API keys are stored in `.env`
+Normal if you don’t have a class for that weekday in `classes.yaml`.
+
+### Email notifications not working
+
+Booking will still proceed. Check:
+- `.env` has correct Mailgun credentials
+- Mailgun domain is verified
+- Logs for Mailgun/API errors
+
+### Calendar webhook “Authorization required”
+
+In Apps Script:
+- Run `testCalendarAccess` once and authorize
+- Re-deploy the web app
+
+## Security notes
+
+- Never commit real `users.yaml` or `.env`.
+- Treat `calendar_webhook_url` like a password (anyone with it can create events).
+
+## Design notes
+
+See `design.md` for deeper implementation details.
 
 ## License
 

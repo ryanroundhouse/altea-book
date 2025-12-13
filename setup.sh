@@ -119,6 +119,6 @@ echo "Automatic scheduling:"
 echo "  python scheduler.py --dry-run    # Preview cron jobs"
 echo "  python scheduler.py --install    # Install cron jobs"
 echo ""
-echo "See SCHEDULING_GUIDE.md for detailed instructions."
+echo "See README.md for detailed instructions."
 echo ""
 
